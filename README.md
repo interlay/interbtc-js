@@ -2,8 +2,10 @@
 
 ## About
 
-The interbtc TypeScript library connects the Polkadot ecosystem with Bitcoin. It allows the creation of interBTC, a fungible token that represents Bitcoin in the Polkadot ecosystem. InterBTC is backed by Bitcoin 1:1 and allows redeeming of the equivalent amount of Bitcoins by relying on a collateralized third-party (Vaults).
-In comparison to other bridge constructions (like tBTC, wBTC, or RenVM) _anyone_ can become an intermediary by depositing collateral making interBTC the only truly open system.
+This library connects the following packages for ease-of-use:
+
+- [interbtc-api](https://github.com/interlay/interbtc-api)
+- [interbtc-index](https://github.com/interlay/interbtc-index)
 
 ## License
 

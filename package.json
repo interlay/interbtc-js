@@ -1,0 +1,55 @@
+{
+  "name": "@interlay/interbtc",
+  "version": "0.26.0",
+  "description": "JavaScript library to interact with InterBTC",
+  "main": "build/src/index.js",
+  "typings": "build/src/index.d.ts",
+  "repository": "https://github.com/interlay/interbtc-js",
+  "license": "Apache-2.0",
+  "keywords": [
+    "Polkadot",
+    "Bitcoin",
+    "InterBTC"
+  ],
+  "scripts": {
+    "build": "run-s build:*",
+    "build:tsc": "tsc -p tsconfig.json"
+  },
+  "engines": {
+    "node": ">=11"
+  },
+  "engineStrict": true,
+  "dependencies": {
+    "@interlay/interbtc-api": "0.26.0",
+    "@interlay/interbtc-index-client": "0.7.0",
+    "@interlay/interbtc-types": "0.10.1",
+    "@interlay/monetary-js": "0.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^14.6.4",
+    "@typescript-eslint/eslint-plugin": "^4.1.0",
+    "@typescript-eslint/parser": "^4.1.0",
+    "eslint": "^7.8.0",
+    "eslint-config-prettier": "^6.11.0",
+    "husky": "^5.1.1",
+    "prettier": "^2.0.5",
+    "npm-run-all": "^4.1.5",
+    "ts-node": "^9.0.0",
+    "typedoc": "^0.21.0",
+    "typedoc-plugin-markdown": "^3.10.2",
+    "typescript": "^4.3.2"
+  },
+  "files": [
+    "build/main",
+    "build/module",
+    "!**/*.spec.*",
+    "!**/*.json",
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md"
+  ],
+  "prettier": {
+    "singleQuote": false,
+    "tabWidth": 4
+  }
+}

@@ -3,14 +3,13 @@ import * as interbtcIndex from "@interlay/interbtc-index-client";
 import {
     FetchAPI,
     IndexApi as RawIndexApi,
-    IndexVaultStatus,
     Middleware,
     SatoshisTimeData,
 } from "@interlay/interbtc-index-client";
 import { Bitcoin, BTCAmount, Polkadot, PolkadotAmount, PolkadotUnit } from "@interlay/monetary-js";
 import { ApiPromise } from "@polkadot/api";
 import Big from "big.js";
-import { Issue, Redeem, VaultExt, VaultStatusExt, newCollateralBTCExchangeRate } from "@interlay/interbtc-api";
+import { Issue, Redeem, VaultExt, newCollateralBTCExchangeRate } from "@interlay/interbtc-api";
 import { DotBtcOracleStatus } from "./oracleTypes";
 
 // TODO: export SatoshisTimeData from `interbtcIndex`
@@ -23,7 +22,7 @@ export interface BTCTimeData {
 const explicitWrappers = (index: RawIndexApi, api: ApiPromise) => {
     return {
         getLatestSubmissionForEachOracle: async (): Promise<DotBtcOracleStatus[]> => {
-            const oracleStatus = await index.getLatestSubmissionForEachOracle();
+            const oracleStatus = await index.getLatestSubmissionForEachOracle({ currencyKey: "DOT" });
             return oracleStatus.map((rawStatus) => {
                 const exchangeRate = newCollateralBTCExchangeRate<PolkadotUnit>(
                     new Big(rawStatus.exchangeRate),
@@ -36,7 +35,7 @@ const explicitWrappers = (index: RawIndexApi, api: ApiPromise) => {
             });
         },
         getLatestSubmission: async (): Promise<DotBtcOracleStatus> => {
-            const submission = await index.getLatestSubmission();
+            const submission = await index.getLatestSubmission({ currencyKey: "DOT" });
             const exchangeRate = newCollateralBTCExchangeRate<PolkadotUnit>(new Big(submission.exchangeRate), Polkadot);
             return {
                 ...submission,
@@ -46,18 +45,11 @@ const explicitWrappers = (index: RawIndexApi, api: ApiPromise) => {
         currentVaultData: async (): Promise<VaultExt[]> => {
             const indexCachedVaults = await index.currentVaultData();
             return indexCachedVaults.map((indexVault) => {
-                const status = ((indexStatus) => {
-                    if (indexStatus === IndexVaultStatus.Active) return VaultStatusExt.Active;
-                    else if (indexStatus === IndexVaultStatus.Inactive) return VaultStatusExt.Inactive;
-                    else if (indexStatus === IndexVaultStatus.Liquidated) return VaultStatusExt.Liquidated;
-                    else if (indexStatus === IndexVaultStatus.CommittedTheft) return VaultStatusExt.CommittedTheft;
-                    else throw new Error("Unknown vault status from Index");
-                })(indexVault.status);
                 return {
                     wallet: indexVault.wallet,
                     backingCollateral: new PolkadotAmount(indexVault.backingCollateral),
                     id: api.createType("AccountId", indexVault.id),
-                    status,
+                    status: indexVault.status,
                     bannedUntil: indexVault.bannedUntil === null ? undefined : indexVault.bannedUntil,
                     toBeIssuedTokens: new BTCAmount(Bitcoin, indexVault.toBeIssuedTokens),
                     issuedTokens: new BTCAmount(Bitcoin, indexVault.issuedTokens),
@@ -174,7 +166,7 @@ export const DefaultIndexAPI: (
     };
 };
 
-export function indexIssueToTypedIssue(issue: interbtcIndex.Issue): Issue {
+export function indexIssueToTypedIssue(issue: interbtcIndex.IndexIssue): Issue {
     return {
         ...issue,
         amountInterBTC: BTCAmount.from.Satoshi(issue.amountInterBTC),
@@ -188,7 +180,7 @@ export function indexIssueToTypedIssue(issue: interbtcIndex.Issue): Issue {
     };
 }
 
-export function indexRedeemToTypedRedeem(redeem: interbtcIndex.Redeem): Redeem {
+export function indexRedeemToTypedRedeem(redeem: interbtcIndex.IndexRedeem): Redeem {
     return {
         ...redeem,
         amountBTC: BTCAmount.from.Satoshi(redeem.amountBTC),

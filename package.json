@@ -1,9 +1,9 @@
 {
   "name": "@interlay/interbtc",
-  "version": "0.26.1",
+  "version": "0.26.2",
   "description": "JavaScript library to interact with InterBTC",
-  "main": "build/src/index.js",
-  "typings": "build/src/index.d.ts",
+  "main": "build/index.js",
+  "typings": "build/index.d.ts",
   "repository": "https://github.com/interlay/interbtc-js",
   "license": "Apache-2.0",
   "keywords": [

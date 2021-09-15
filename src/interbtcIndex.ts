@@ -6,16 +6,16 @@ import {
     Middleware,
     SatoshisTimeData,
 } from "@interlay/interbtc-index-client";
-import { Bitcoin, BTCAmount, Polkadot, PolkadotAmount, PolkadotUnit } from "@interlay/monetary-js";
+import { Bitcoin, BitcoinAmount, BitcoinUnit, Currency, MonetaryAmount, Polkadot, PolkadotAmount, PolkadotUnit } from "@interlay/monetary-js";
 import { ApiPromise } from "@polkadot/api";
 import Big from "big.js";
-import { Issue, Redeem, VaultExt, newCollateralBTCExchangeRate } from "@interlay/interbtc-api";
+import { Issue, Redeem, VaultExt, newCollateralBTCExchangeRate, newMonetaryAmount, CollateralUnit } from "@interlay/interbtc-api";
 import { DotBtcOracleStatus } from "./oracleTypes";
 
 // TODO: export SatoshisTimeData from `interbtcIndex`
 export interface BTCTimeData {
     date: Date;
-    btc: BTCAmount;
+    btc: BitcoinAmount;
 }
 
 /* Add wrappers here. Use keys matching the raw API call names to override those APIs with the wrappers. */
@@ -42,21 +42,24 @@ const explicitWrappers = (index: RawIndexApi, api: ApiPromise) => {
                 exchangeRate,
             };
         },
-        currentVaultData: async (): Promise<VaultExt[]> => {
+        currentVaultData: async (): Promise<VaultExt<BitcoinUnit>[]> => {
+            // TODO: Pass wrappedCurrency as argument, use vault.collateralCurrency instead
+            // of hardcoded `Polkadot`
             const indexCachedVaults = await index.currentVaultData();
             return indexCachedVaults.map((indexVault) => {
                 return {
                     wallet: indexVault.wallet,
-                    backingCollateral: new PolkadotAmount(indexVault.backingCollateral),
+                    backingCollateral: newMonetaryAmount(indexVault.backingCollateral, Polkadot) as MonetaryAmount<Currency<CollateralUnit>, CollateralUnit>,
                     id: api.createType("AccountId", indexVault.id),
                     status: indexVault.status,
                     bannedUntil: indexVault.bannedUntil === null ? undefined : indexVault.bannedUntil,
-                    toBeIssuedTokens: new BTCAmount(Bitcoin, indexVault.toBeIssuedTokens),
-                    issuedTokens: new BTCAmount(Bitcoin, indexVault.issuedTokens),
-                    toBeRedeemedTokens: new BTCAmount(Bitcoin, indexVault.toBeRedeemedTokens),
-                    toBeReplacedTokens: new BTCAmount(Bitcoin, indexVault.toBeReplacedTokens),
-                    replaceCollateral: new PolkadotAmount(indexVault.replaceCollateral),
-                    liquidatedCollateral: new PolkadotAmount(indexVault.liquidatedCollateral),
+                    toBeIssuedTokens: new BitcoinAmount(Bitcoin, indexVault.toBeIssuedTokens),
+                    issuedTokens: new BitcoinAmount(Bitcoin, indexVault.issuedTokens),
+                    toBeRedeemedTokens: new BitcoinAmount(Bitcoin, indexVault.toBeRedeemedTokens),
+                    toBeReplacedTokens: new BitcoinAmount(Bitcoin, indexVault.toBeReplacedTokens),
+                    replaceCollateral: newMonetaryAmount(indexVault.replaceCollateral, Polkadot) as MonetaryAmount<Currency<CollateralUnit>, CollateralUnit>,
+                    liquidatedCollateral: newMonetaryAmount(indexVault.liquidatedCollateral, Polkadot) as MonetaryAmount<Currency<CollateralUnit>, CollateralUnit>,
+                    collateralCurrency: Polkadot as Currency<CollateralUnit>,
                 };
             });
         },
@@ -88,10 +91,10 @@ const explicitWrappers = (index: RawIndexApi, api: ApiPromise) => {
             const redeems = await index.getRecentDailyRedeems(requestParameters);
             return redeems.map(satoshisToBtcTimeData);
         },
-        getDustValue: async (): Promise<BTCAmount> => {
+        getDustValue: async (): Promise<BitcoinAmount> => {
             // the returned string contains double-quotes (e.g. `"100"`), which must be removed
             const parsedDustValue = (await index.getDustValue()).split('"').join("");
-            return BTCAmount.from.Satoshi(parsedDustValue);
+            return BitcoinAmount.from.Satoshi(parsedDustValue);
         },
     };
 };
@@ -167,32 +170,38 @@ export const DefaultIndexAPI: (
 };
 
 export function indexIssueToTypedIssue(issue: interbtcIndex.IndexIssue): Issue {
+    // TODO determine collateralCurrency based on vault
     return {
         ...issue,
-        amountInterBTC: BTCAmount.from.Satoshi(issue.amountInterBTC),
-        bridgeFee: BTCAmount.from.Satoshi(issue.bridgeFee),
-        griefingCollateral: PolkadotAmount.from.Planck(issue.griefingCollateral),
+        wrappedAmount: BitcoinAmount.from.Satoshi(issue.amountInterBTC),
+        bridgeFee: BitcoinAmount.from.Satoshi(issue.bridgeFee),
+        griefingCollateral: PolkadotAmount.from.Planck(issue.griefingCollateral) as MonetaryAmount<Currency<CollateralUnit>, CollateralUnit>,
         btcAmountSubmittedByUser: issue.btcAmountSubmittedByUser
-            ? BTCAmount.from.Satoshi(issue.btcAmountSubmittedByUser)
+            ? BitcoinAmount.from.Satoshi(issue.btcAmountSubmittedByUser)
             : undefined,
-        refundAmountBTC: issue.refundAmountBTC ? BTCAmount.from.Satoshi(issue.refundAmountBTC) : undefined,
-        executedAmountBTC: issue.executedAmountBTC ? BTCAmount.from.Satoshi(issue.executedAmountBTC) : undefined,
+        refundAmountBTC: issue.refundAmountBTC ? BitcoinAmount.from.Satoshi(issue.refundAmountBTC) : undefined,
+        executedAmountBTC: issue.executedAmountBTC ? BitcoinAmount.from.Satoshi(issue.executedAmountBTC) : undefined,
+        userParachainAddress: issue.userDOTAddress,
+        vaultParachainAddress: issue.vaultDOTAddress
     };
 }
 
 export function indexRedeemToTypedRedeem(redeem: interbtcIndex.IndexRedeem): Redeem {
+    // TODO determine collateralCurrency based on vault
     return {
         ...redeem,
-        amountBTC: BTCAmount.from.Satoshi(redeem.amountBTC),
-        dotPremium: PolkadotAmount.from.Planck(redeem.dotPremium),
-        bridgeFee: BTCAmount.from.Satoshi(redeem.bridgeFee),
-        btcTransferFee: BTCAmount.from.Satoshi(redeem.btcTransferFee),
+        amountBTC: BitcoinAmount.from.Satoshi(redeem.amountBTC),
+        collateralPremium: PolkadotAmount.from.Planck(redeem.dotPremium) as MonetaryAmount<Currency<CollateralUnit>, CollateralUnit>,
+        bridgeFee: BitcoinAmount.from.Satoshi(redeem.bridgeFee),
+        btcTransferFee: BitcoinAmount.from.Satoshi(redeem.btcTransferFee),
+        userParachainAddress: redeem.userDOTAddress,
+        vaultParachainAddress: redeem.vaultDOTAddress
     };
 }
 
 export function satoshisToBtcTimeData(data: SatoshisTimeData): BTCTimeData {
     return {
         date: new Date(data.date),
-        btc: BTCAmount.from.Satoshi(data.sat),
+        btc: BitcoinAmount.from.Satoshi(data.sat),
     };
 }

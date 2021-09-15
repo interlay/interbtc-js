@@ -1,4 +1,4 @@
-import { BitcoinNetwork, createInterbtcAPI, InterBTCAPI } from "@interlay/interbtc-api";
+import { BitcoinNetwork, createInterbtcAPI, InterBTCAPI, WrappedCurrency } from "@interlay/interbtc-api";
 import { AddressOrPair } from "@polkadot/api/types";
 import { DefaultIndexAPI, WrappedIndexAPI } from "./interbtcIndex";
 import { ApiPromise } from "@polkadot/api";
@@ -8,11 +8,12 @@ export const INDEX_LOCAL_URL = "http://localhost:3007";
 export async function createInterbtc(
     endpoint: string,
     network?: BitcoinNetwork,
+    wrappedCurrency?: WrappedCurrency,
     indexEndpoint?: string,
     account?: AddressOrPair,
     autoConnect?: number | false | undefined
 ): Promise<InterBtc> {
-    const interBtcApi = await createInterbtcAPI(endpoint, network, account, autoConnect);
+    const interBtcApi = await createInterbtcAPI(endpoint, network, wrappedCurrency, account, autoConnect);
     const polkadotApi = interBtcApi.api;
     const interBtcIndex = DefaultIndexAPI({ basePath: indexEndpoint }, polkadotApi);
     return new DefaultInterBtc(polkadotApi, interBtcApi, interBtcIndex);

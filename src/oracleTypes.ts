@@ -1,4 +1,5 @@
-import { Bitcoin, BitcoinUnit, Currency, ExchangeRate, Polkadot, PolkadotUnit, UnitList } from "@interlay/monetary-js";
+import { CollateralUnit } from "@interlay/interbtc-api";
+import { Bitcoin, BitcoinUnit, Currency, ExchangeRate, UnitList } from "@interlay/monetary-js";
 
 export interface OracleStatus<
     B extends Currency<BaseUnit>,
@@ -15,6 +16,6 @@ export interface OracleStatus<
 }
 
 // TODO: May need generic collateral currency
-export type DotBtcOracleStatus = OracleStatus<Bitcoin, BitcoinUnit, Polkadot, PolkadotUnit>;
+export type CollateralBtcOracleStatus = OracleStatus<Bitcoin, BitcoinUnit, Currency<CollateralUnit>, CollateralUnit>;
 
 export type FeeEstimationType = "Fast" | "Half" | "Hour";

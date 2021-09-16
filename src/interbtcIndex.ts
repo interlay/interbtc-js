@@ -46,8 +46,8 @@ const explicitWrappers = (index: RawIndexApi, api: ApiPromise) => {
         currentVaultData: async (): Promise<VaultExt<BitcoinUnit>[]> => {
             const indexCachedVaults = await index.currentVaultData();
             return indexCachedVaults.map((indexVault) => {
-                const vaultCollateralCurrency = currencyNameToCurrency(indexVault.collateralCurrency);
-                const newVaultCollateralAmount = currencyFactory(vaultCollateralCurrency) as Factory<CollateralUnit>;
+                const vaultCollateralCurrency = currencyNameToCurrency(indexVault.collateralCurrency) as Currency<CollateralUnit>;
+                const newVaultCollateralAmount = currencyFactory(vaultCollateralCurrency);
                 return {
                     wallet: indexVault.wallet,
                     backingCollateral: newVaultCollateralAmount(indexVault.backingCollateral),
@@ -191,7 +191,8 @@ export function indexIssueToTypedIssue(issue: interbtcIndex.IndexIssue): Issue {
 
 export function indexRedeemToTypedRedeem(redeem: interbtcIndex.IndexRedeem): Redeem {
     // TODO determine collateralCurrency based on vault
-    const newVaultCollateralAmount = currencyFactory(redeem.collateralCurrencyName) as Factory<CollateralUnit>;
+    const vaultCollateralCurrency = currencyNameToCurrency(redeem.collateralCurrencyName) as Currency<CollateralUnit>;
+    const newVaultCollateralAmount = currencyFactory(vaultCollateralCurrency);
     return {
         ...redeem,
         amountBTC: BitcoinAmount.from.Satoshi(redeem.amountBTC),

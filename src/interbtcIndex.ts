@@ -6,17 +6,32 @@ import {
     Middleware,
     SatoshisTimeData,
 } from "@interlay/interbtc-index-client";
-import { Bitcoin, BitcoinAmount, BitcoinUnit, Currency, KusamaAmount, MonetaryAmount, Polkadot, PolkadotUnit } from "@interlay/monetary-js";
+import { Bitcoin, BitcoinAmount, BitcoinUnit, Currency, Kusama, KusamaAmount, KusamaUnit, MonetaryAmount, Polkadot, PolkadotUnit } from "@interlay/monetary-js";
 import { ApiPromise } from "@polkadot/api";
 import Big from "big.js";
 import {Issue, Redeem, VaultExt, newCollateralBTCExchangeRate, CollateralUnit} from "@interlay/interbtc-api";
 import { CollateralBtcOracleStatus } from "./oracleTypes";
-import {currencyNameToCurrency, currencyFactory, Factory} from "./currencyMapper";
+import {currencyNameToCurrency, currencyFactory } from "./currencyMapper";
 
 // TODO: export SatoshisTimeData from `interbtcIndex`
 export interface BTCTimeData {
     date: Date;
     btc: BitcoinAmount;
+}
+
+function constructExchangeRate(currencyKey: string, rawRate: string) {
+    switch (currencyKey) {
+        case "DOT":
+            return newCollateralBTCExchangeRate<PolkadotUnit>(
+                new Big(rawRate),
+                Polkadot
+            );
+        case "KSM":
+            return newCollateralBTCExchangeRate<KusamaUnit>(
+                new Big(rawRate),
+                Kusama
+            );
+    }
 }
 
 /* Add wrappers here. Use keys matching the raw API call names to override those APIs with the wrappers. */
@@ -25,10 +40,7 @@ const explicitWrappers = (index: RawIndexApi, api: ApiPromise) => {
         getLatestSubmissionForEachOracle: async (currencyKey: string): Promise<CollateralBtcOracleStatus[]> => {
             const oracleStatus = await index.getLatestSubmissionForEachOracle({ currencyKey });
             return oracleStatus.map((rawStatus) => {
-                const exchangeRate = newCollateralBTCExchangeRate<PolkadotUnit>(
-                    new Big(rawStatus.exchangeRate),
-                    Polkadot
-                );
+                const exchangeRate = constructExchangeRate(currencyKey, rawStatus.exchangeRate)
                 return {
                     ...rawStatus,
                     exchangeRate,
@@ -37,7 +49,7 @@ const explicitWrappers = (index: RawIndexApi, api: ApiPromise) => {
         },
         getLatestSubmission: async (currencyKey: string): Promise<CollateralBtcOracleStatus> => {
             const submission = await index.getLatestSubmission({ currencyKey });
-            const exchangeRate = newCollateralBTCExchangeRate<PolkadotUnit>(new Big(submission.exchangeRate), Polkadot);
+            const exchangeRate = constructExchangeRate(currencyKey, submission.exchangeRate);
             return {
                 ...submission,
                 exchangeRate,

@@ -2,6 +2,8 @@
 
 ## About
 
+**WARNING: The goal of this package is to bring together all the JavaScript-related packages developed for interBTC, and wrap around calls that need extra processing for strong typing. Because this is still a work in progress, `@interlay/interbtc-index-client` still needs to be imported explicitly.**
+
 This library connects the following packages for ease-of-use:
 
 - [interbtc-api](https://github.com/interlay/interbtc-api)

@@ -9,7 +9,7 @@ import {
 import { Bitcoin, BitcoinAmount, BitcoinUnit, Currency, Kusama, KusamaAmount, KusamaUnit, MonetaryAmount, Polkadot, PolkadotUnit } from "@interlay/monetary-js";
 import { ApiPromise } from "@polkadot/api";
 import Big from "big.js";
-import {Issue, Redeem, VaultExt, newCollateralBTCExchangeRate, CollateralUnit} from "@interlay/interbtc-api";
+import {Issue, Redeem, VaultExt, newCollateralBTCExchangeRate, CollateralUnit, newVaultId, decodeVaultId, InterbtcPrimitivesVaultId, newMonetaryAmount, currencyIdToMonetaryCurrency, currencyIdToLiteral} from "@interlay/interbtc-api";
 import { CollateralBtcOracleStatus } from "./oracleTypes";
 import {currencyNameToCurrency, currencyFactory } from "./currencyMapper";
 
@@ -58,39 +58,40 @@ const explicitWrappers = (index: RawIndexApi, api: ApiPromise) => {
         currentVaultData: async (): Promise<VaultExt<BitcoinUnit>[]> => {
             const indexCachedVaults = await index.currentVaultData();
             return indexCachedVaults.map((indexVault) => {
-                const vaultCollateralCurrency = currencyNameToCurrency(indexVault.collateralCurrency) as Currency<CollateralUnit>;
-                const newVaultCollateralAmount = currencyFactory(vaultCollateralCurrency);
-                return {
-                    wallet: indexVault.wallet,
-                    backingCollateral: newVaultCollateralAmount(indexVault.backingCollateral),
-                    id: api.createType("AccountId", indexVault.id),
-                    status: indexVault.status,
-                    bannedUntil: indexVault.bannedUntil === null ? undefined : indexVault.bannedUntil,
-                    toBeIssuedTokens: new BitcoinAmount(Bitcoin, indexVault.toBeIssuedTokens),
-                    issuedTokens: new BitcoinAmount(Bitcoin, indexVault.issuedTokens),
-                    toBeRedeemedTokens: new BitcoinAmount(Bitcoin, indexVault.toBeRedeemedTokens),
-                    toBeReplacedTokens: new BitcoinAmount(Bitcoin, indexVault.toBeReplacedTokens),
-                    replaceCollateral: newVaultCollateralAmount(indexVault.replaceCollateral),
-                    liquidatedCollateral: newVaultCollateralAmount(indexVault.liquidatedCollateral),
-                    collateralCurrency: vaultCollateralCurrency as unknown as Currency<CollateralUnit>,
-                };
+                const decodedVaultId = decodeVaultId(api, indexVault.id) as InterbtcPrimitivesVaultId;
+                const vaultId = decodedVaultId(api, indexVault.id);
+                const collateralCurrency = currencyIdToMonetaryCurrency(vaultId.currencies.collateral) as Currency<CollateralUnit>;
+                return new VaultExt<BitcoinUnit>(
+                    api,
+                    indexVault.wallet,
+                    newMonetaryAmount(indexVault.backingCollateral, collateralCurrency),
+                    decodedVaultId,
+                    indexVault.status,
+                    indexVault.bannedUntil === null ? undefined : indexVault.bannedUntil,
+                    new BitcoinAmount(Bitcoin, indexVault.toBeIssuedTokens),
+                    new BitcoinAmount(Bitcoin, indexVault.issuedTokens),
+                    new BitcoinAmount(Bitcoin, indexVault.toBeRedeemedTokens),
+                    new BitcoinAmount(Bitcoin, indexVault.toBeReplacedTokens),
+                    newMonetaryAmount(indexVault.replaceCollateral, collateralCurrency),
+                    newMonetaryAmount(indexVault.liquidatedCollateral, collateralCurrency),
+                );
             });
         },
         getIssues: async (requestParameters: interbtcIndex.GetIssuesRequest): Promise<Issue[]> => {
             const issues = await index.getIssues(requestParameters);
-            return issues.map(indexIssueToTypedIssue);
+            return issues.map(issue => indexIssueToTypedIssue(api, issue));
         },
         getRedeems: async (requestParameters: interbtcIndex.GetRedeemsRequest): Promise<Redeem[]> => {
             const redeems = await index.getRedeems(requestParameters);
-            return redeems.map(indexRedeemToTypedRedeem);
+            return redeems.map(redeem => indexRedeemToTypedRedeem(api, redeem));
         },
         getFilteredIssues: async (requestParameters: interbtcIndex.GetFilteredIssuesRequest): Promise<Issue[]> => {
             const issues = await index.getFilteredIssues(requestParameters);
-            return issues.map(indexIssueToTypedIssue);
+            return issues.map(issue => indexIssueToTypedIssue(api, issue));
         },
         getFilteredRedeems: async (requestParameters: interbtcIndex.GetFilteredRedeemsRequest): Promise<Redeem[]> => {
             const redeems = await index.getFilteredRedeems(requestParameters);
-            return redeems.map(indexRedeemToTypedRedeem);
+            return redeems.map(redeem => indexRedeemToTypedRedeem(api, redeem));
         },
         getRecentDailyIssues: async (
             requestParameters: interbtcIndex.GetRecentDailyIssuesRequest
@@ -182,7 +183,7 @@ export const DefaultIndexAPI: (
     };
 };
 
-export function indexIssueToTypedIssue(issue: interbtcIndex.IndexIssue): Issue {
+export function indexIssueToTypedIssue(api: ApiPromise, issue: interbtcIndex.IndexIssue): Issue {
     // TODO determine collateralCurrency based on vault
     return {
         ...issue,
@@ -194,16 +195,16 @@ export function indexIssueToTypedIssue(issue: interbtcIndex.IndexIssue): Issue {
         btcAmountSubmittedByUser: issue.btcAmountSubmittedByUser
             ? BitcoinAmount.from.Satoshi(issue.btcAmountSubmittedByUser)
             : undefined,
-        refundAmountBTC: issue.refundAmountBTC ? BitcoinAmount.from.Satoshi(issue.refundAmountBTC) : undefined,
-        executedAmountBTC: issue.executedAmountBTC ? BitcoinAmount.from.Satoshi(issue.executedAmountBTC) : undefined,
+        refundAmountWrapped: issue.refundAmountWrapped ? BitcoinAmount.from.Satoshi(issue.refundAmountWrapped) : undefined,
+        executedAmountWrapped: issue.executedAmountWrapped ? BitcoinAmount.from.Satoshi(issue.executedAmountWrapped) : undefined,
         userParachainAddress: issue.userParachainAddress,
-        vaultParachainAddress: issue.vaultParachainAddress
+        vaultId: decodeVaultId(api, issue.vaultId)
     };
 }
 
-export function indexRedeemToTypedRedeem(redeem: interbtcIndex.IndexRedeem): Redeem {
-    // TODO determine collateralCurrency based on vault
-    const vaultCollateralCurrency = currencyNameToCurrency(redeem.collateralCurrencyName) as Currency<CollateralUnit>;
+export function indexRedeemToTypedRedeem(api: ApiPromise, redeem: interbtcIndex.IndexRedeem): Redeem {
+    const vaultId = decodeVaultId(api, redeem.vaultId);
+    const vaultCollateralCurrency = currencyIdToMonetaryCurrency(vaultId.currencies.collateral) as Currency<CollateralUnit>;
     const newVaultCollateralAmount = currencyFactory(vaultCollateralCurrency);
     return {
         ...redeem,
@@ -212,7 +213,7 @@ export function indexRedeemToTypedRedeem(redeem: interbtcIndex.IndexRedeem): Red
         bridgeFee: BitcoinAmount.from.Satoshi(redeem.bridgeFee),
         btcTransferFee: BitcoinAmount.from.Satoshi(redeem.btcTransferFee),
         userParachainAddress: redeem.userParachainAddress,
-        vaultParachainAddress: redeem.vaultParachainAddress
+        vaultId: decodeVaultId(api, redeem.vaultId)
     };
 }
 

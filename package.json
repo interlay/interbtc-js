@@ -1,6 +1,6 @@
 {
   "name": "@interlay/interbtc",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "JavaScript library to interact with InterBTC",
   "main": "build/index.js",
   "typings": "build/index.d.ts",
@@ -20,7 +20,7 @@
   },
   "engineStrict": true,
   "dependencies": {
-    "@interlay/interbtc-api": "1.5.10",
+    "@interlay/interbtc-api": "1.5.12",
     "@interlay/interbtc-index-client": "1.5.0",
     "@interlay/interbtc-types": "1.3.0",
     "@interlay/monetary-js": "0.5.1"

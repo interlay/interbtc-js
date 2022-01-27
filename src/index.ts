@@ -14,7 +14,7 @@ export async function createInterbtc(
     account?: AddressOrPair,
     autoConnect?: number | false | undefined
 ): Promise<InterBtc> {
-    const interBtcApi = await createInterbtcAPI(endpoint, collateralCurrency, network, wrappedCurrency, account, autoConnect);
+    const interBtcApi = await createInterbtcAPI(endpoint, network, wrappedCurrency, account, autoConnect);
     const polkadotApi = interBtcApi.api;
     const interBtcIndex = DefaultIndexAPI({ basePath: indexEndpoint }, polkadotApi);
     return new DefaultInterBtc(polkadotApi, interBtcApi, interBtcIndex);

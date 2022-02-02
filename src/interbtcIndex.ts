@@ -9,7 +9,7 @@ import {
 import { Bitcoin, BitcoinAmount, BitcoinUnit, Currency, Kusama, KusamaAmount, KusamaUnit, MonetaryAmount, Polkadot, PolkadotUnit } from "@interlay/monetary-js";
 import { ApiPromise } from "@polkadot/api";
 import Big from "big.js";
-import {Issue, Redeem, VaultExt, newCollateralBTCExchangeRate, CollateralUnit, newVaultId, decodeVaultId, InterbtcPrimitivesVaultId, newMonetaryAmount, currencyIdToMonetaryCurrency, currencyIdToLiteral} from "@interlay/interbtc-api";
+import {Issue, Redeem, VaultExt, newCollateralBTCExchangeRate, CollateralUnit, newVaultId, decodeVaultId, InterbtcPrimitivesVaultId, newMonetaryAmount, currencyIdToMonetaryCurrency, currencyIdToLiteral, InterBtcApi} from "@interlay/interbtc-api";
 import { CollateralBtcOracleStatus } from "./oracleTypes";
 import {currencyNameToCurrency, currencyFactory } from "./currencyMapper";
 
@@ -35,7 +35,7 @@ function constructExchangeRate(currencyKey: string, rawRate: string) {
 }
 
 /* Add wrappers here. Use keys matching the raw API call names to override those APIs with the wrappers. */
-const explicitWrappers = (index: RawIndexApi, api: ApiPromise) => {
+const explicitWrappers = (index: RawIndexApi, interBtcApi: InterBtcApi) => {
     return {
         getLatestSubmissionForEachOracle: async (currencyKey: string): Promise<CollateralBtcOracleStatus[]> => {
             const oracleStatus = await index.getLatestSubmissionForEachOracle({ currencyKey });
@@ -58,11 +58,13 @@ const explicitWrappers = (index: RawIndexApi, api: ApiPromise) => {
         currentVaultData: async (): Promise<VaultExt<BitcoinUnit>[]> => {
             const indexCachedVaults = await index.currentVaultData();
             return indexCachedVaults.map((indexVault) => {
-                const decodedVaultId = decodeVaultId(api, indexVault.id) as InterbtcPrimitivesVaultId;
-                const vaultId = decodedVaultId(api, indexVault.id);
+                const decodedVaultId = decodeVaultId(interBtcApi.api, indexVault.id) as InterbtcPrimitivesVaultId;
+                const vaultId = decodedVaultId(interBtcApi.api, indexVault.id);
                 const collateralCurrency = currencyIdToMonetaryCurrency(vaultId.currencies.collateral) as Currency<CollateralUnit>;
                 return new VaultExt<BitcoinUnit>(
-                    api,
+                    interBtcApi.api,
+                    interBtcApi.oracle,
+                    interBtcApi.system,
                     indexVault.wallet,
                     newMonetaryAmount(indexVault.backingCollateral, collateralCurrency),
                     decodedVaultId,
@@ -79,19 +81,19 @@ const explicitWrappers = (index: RawIndexApi, api: ApiPromise) => {
         },
         getIssues: async (requestParameters: interbtcIndex.GetIssuesRequest): Promise<Issue[]> => {
             const issues = await index.getIssues(requestParameters);
-            return issues.map(issue => indexIssueToTypedIssue(api, issue));
+            return issues.map(issue => indexIssueToTypedIssue(interBtcApi.api, issue));
         },
         getRedeems: async (requestParameters: interbtcIndex.GetRedeemsRequest): Promise<Redeem[]> => {
             const redeems = await index.getRedeems(requestParameters);
-            return redeems.map(redeem => indexRedeemToTypedRedeem(api, redeem));
+            return redeems.map(redeem => indexRedeemToTypedRedeem(interBtcApi.api, redeem));
         },
         getFilteredIssues: async (requestParameters: interbtcIndex.GetFilteredIssuesRequest): Promise<Issue[]> => {
             const issues = await index.getFilteredIssues(requestParameters);
-            return issues.map(issue => indexIssueToTypedIssue(api, issue));
+            return issues.map(issue => indexIssueToTypedIssue(interBtcApi.api, issue));
         },
         getFilteredRedeems: async (requestParameters: interbtcIndex.GetFilteredRedeemsRequest): Promise<Redeem[]> => {
             const redeems = await index.getFilteredRedeems(requestParameters);
-            return redeems.map(redeem => indexRedeemToTypedRedeem(api, redeem));
+            return redeems.map(redeem => indexRedeemToTypedRedeem(interBtcApi.api, redeem));
         },
         getRecentDailyIssues: async (
             requestParameters: interbtcIndex.GetRecentDailyIssuesRequest
@@ -142,8 +144,8 @@ export type WrappedIndexAPI = ThinWrappedIndexAPI & ExplicitlyWrappedIndexAPI;
 
 export const DefaultIndexAPI: (
     configurationParams: interbtcIndex.ConfigurationParameters,
-    api: ApiPromise
-) => WrappedIndexAPI = (configuration, api) => {
+    interBtcApi: InterBtcApi
+) => WrappedIndexAPI = (configuration, interBtcApi) => {
     const config = new interbtcIndex.Configuration({
         ...configuration,
         // use custom `fetchAPI`, that works both in browser and in node
@@ -152,8 +154,8 @@ export const DefaultIndexAPI: (
         middleware: [] as Middleware[],
     });
     const index = new interbtcIndex.IndexApi(config);
+    const instantiatedExplicitWrappers = explicitWrappers(index, interBtcApi);
 
-    const instantiatedExplicitWrappers = explicitWrappers(index, api);
 
     const excludeFromThinWrappers = (key: string) =>
         Object.keys(explicitWrappers).includes(key) ||
